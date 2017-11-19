@@ -1417,7 +1417,7 @@ def cmd_build_py(options, args):
     if options.release:
         os.environ['WXPYTHON_RELEASE'] = 'yes'
 
-    if not isWindows:
+    if not isWindows or isMsys:
         WX_CONFIG = posixjoin(BUILD_DIR, 'wx-config')
         if options.use_syswx:
             wxcfg = posixjoin(options.prefix, 'bin', 'wx-config')
@@ -1441,12 +1441,12 @@ def cmd_build_py(options, args):
             wafBuildDir = posixjoin(wafBuildBase, 'debug')
     if isDarwin and options.mac_arch:
         build_options.append("--mac_arch=%s" % options.mac_arch)
-    if isWindows:
+    if isWindows and not isMsys:
         if PYTHON_ARCH == '64bit':
             build_options.append('--msvc_arch=x64')
         else:
             build_options.append('--msvc_arch=x86')
-    if not isWindows:
+    if not isWindows or isMsys:
         build_options.append('--wx_config=%s' % WX_CONFIG)
     if options.verbose:
         build_options.append('--verbose')
@@ -1694,7 +1694,7 @@ def cmd_clean_py(options, args):
     files = list()
     for wc in ['*.py', '*.pyc', '*.so', '*.dylib', '*.pyd', '*.pdb', '*.pi', '*.pyi']:
         files += glob.glob(opj(cfg.PKGDIR, wc))
-    if isWindows:
+    if isWindows and not isMsys:
         msw = getMSWSettings(options)
         for wc in [ 'wx*' + wxversion2_nodot + msw.dll_type + '*.dll',
                     'wx*' + wxversion3_nodot + msw.dll_type + '*.dll']:

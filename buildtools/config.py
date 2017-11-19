@@ -28,6 +28,7 @@ import distutils.sysconfig
 
 runSilently = False
 
+
 #----------------------------------------------------------------------
 
 class Configuration(object):
@@ -386,6 +387,9 @@ class Configuration(object):
         options and searches for wx-config on the PATH.
         """
         # if WX_CONFIG hasn't been set to an explicit value then construct one.
+        if getToolsPlatformName().startswith('msys'):
+            self.WX_CONFIG = runcmd('cygpath -am ' + self.ROOT_DIR + "\\wx-config", True, False)
+            print self.WX_CONFIG
         if self.WX_CONFIG is None:
             self.WX_CONFIG='wx-config'
             port = self.WXPORT
@@ -413,7 +417,7 @@ class Configuration(object):
 
 
     def getWxConfigValue(self, flag):
-        cmd = "%s %s" % (self.WX_CONFIG, flag)
+        cmd = "%s \"%s %s\"" % ("sh -c", self.WX_CONFIG, flag)
         value = os.popen(cmd, 'r').read()[:-1]
         return value
 
