@@ -189,7 +189,7 @@ def main(wxDir, args):
     if sys.platform.startswith("win"):
         contribDir = os.path.join(wxRootDir, "contrib", "build")
 
-    if sys.platform.startswith("win"):
+    if sys.platform.startswith("win") and not "MSYSTEM" in os.environ:
         toolkit = "msvc"
     else:
         toolkit = "autoconf"
@@ -272,7 +272,15 @@ def main(wxDir, args):
         if options.gtk2:
             options.gtk3 = False
 
-        if not sys.platform.startswith("darwin"):
+        if sys.platform.startswith("win"):
+            host = os.environ.get('MINGW_CHOST')
+            if host == "":
+               host = "i686-w64-mingw32"
+            configure_opts.append("--host="+host)
+            configure_opts.append("--build="+host)
+            configure_opts.append("--with-msw")
+
+        if not sys.platform.startswith("darwin") and not sys.platform.startswith("win"):
             if options.gtk3:
                 configure_opts.append("--with-gtk=3")
 

@@ -28,6 +28,11 @@ import distutils.sysconfig
 
 runSilently = False
 
+if sys.platform.startswith('win') and "MSYSTEM" in os.environ:
+    isMsys = os.popen('uname -o', 'r').read()[:-1].startswith('Msys')
+else:
+    isMsys = False
+
 #----------------------------------------------------------------------
 
 class Configuration(object):
@@ -50,7 +55,7 @@ class Configuration(object):
     # wx-config command will be assembled based on version, port,
     # etc. and it will be looked for on the default $PATH.
 
-    WXPORT = 'gtk3'
+    WXPORT = 'msw'
     # On Linux/Unix there are several ports of wxWidgets available.
     # Setting this value lets you select which will be used for the
     # wxPython build.  Possibilities are 'gtk', 'gtk2', 'gtk3' and 'x11'.
@@ -68,7 +73,7 @@ class Configuration(object):
     WXDLLVER = None
     # Version part of wxWidgets LIB/DLL names
 
-    COMPILER = 'msvc'
+    COMPILER = 'mingw32'
     # Used to select which compiler will be used on Windows.  This not
     # only affects distutils, but also some of the default flags and
     # other assumptions in this script.  Current supported values are
@@ -396,7 +401,11 @@ class Configuration(object):
             flags += ' --version=%s.%s' % (self.wxVER_MAJOR, self.wxVER_MINOR)
 
             searchpath = os.environ["PATH"]
-            for p in searchpath.split(':'):
+            if isMsys:
+                searchpathsplitter = ';'
+            else:
+                searchpathsplitter = ':'
+            for p in searchpath.split(searchpathsplitter):
                 fp = os.path.join(p, 'wx-config')
                 if os.path.exists(fp) and os.access(fp, os.X_OK):
                     # success
@@ -413,7 +422,10 @@ class Configuration(object):
 
 
     def getWxConfigValue(self, flag):
-        cmd = "%s %s" % (self.WX_CONFIG, flag)
+        if isMsys:
+            cmd = "%s \"%s %s\"" % ("sh -c", self.WX_CONFIG, flag)
+        else:
+            cmd = "%s %s" % (self.WX_CONFIG, flag)
         value = os.popen(cmd, 'r').read()[:-1]
         return value
 
@@ -557,9 +569,14 @@ class Configuration(object):
         newLFLAGS = []
         for flag in lflags:
             if flag[:2] == '-L':
-                libdirs.append(flag[2:])
+                if isMsys:
+                    libdirs.append(os.popen(' '.join(['cygpath', '-am', flag[2:]])).readline().strip())
+                else:
+                    libdirs.append(flag[2:])
             elif flag[:2] == '-l':
                 libs.append(flag[2:])
+            elif isMsys and flag[:1] == '/':
+                libs.append(os.popen(' '.join(['cygpath', '-am', flag])).readline().strip())
             else:
                 newLFLAGS.append(flag)
         return newLFLAGS

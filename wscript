@@ -20,6 +20,10 @@ APPNAME = 'wxPython'
 VERSION = cfg.VERSION
 
 isWindows = sys.platform.startswith('win')
+if isWindows and "MSYSTEM" in os.environ:
+    isMsys = os.popen('uname -o', 'r').read()[:-1].startswith('Msys')
+else:
+    isMsys = False
 isDarwin = sys.platform == "darwin"
 
 top = '.'
@@ -27,8 +31,10 @@ out = 'build/waf'
 
 
 def options(opt):
-    if isWindows:
+    if isWindows and cfg.COMPILER == 'msvc':
         opt.load('msvc')
+    elif isWindows and cfg.COMPILER == 'mingw32':
+        opt.load('gcc')
     else:
         opt.load('compiler_cc compiler_cxx')
     opt.load('python')
@@ -67,7 +73,7 @@ def options(opt):
 
 
 def configure(conf):
-    if isWindows:
+    if isWindows and cfg.COMPILER == 'msvc':
         # For now simply choose the compiler version based on the Python
         # version. We have a chicken-egg problem here. The compiler needs to
         # be selected before the Python stuff can be configured, but we need
@@ -77,6 +83,9 @@ def configure(conf):
         conf.env['MSVC_VERSIONS'] = ['msvc ' + msvc_version]
         conf.env['MSVC_TARGETS'] = [conf.options.msvc_arch]
         conf.load('msvc')
+    elif isWindows and cfg.COMPILER == 'mingw32':
+        import distutils.cygwinccompiler
+        conf.load('gcc')
     else:
         conf.load('compiler_cc compiler_cxx')
 
@@ -98,7 +107,7 @@ def configure(conf):
     # Ensure that the headers in siplib and Phoenix's src dir can be found
     conf.env.INCLUDES_WXPY = ['sip/siplib', 'src']
 
-    if isWindows:
+    if isWindows and not isMsys:
         # Windows/MSVC specific stuff
 
         cfg.finishSetup(debug=conf.env.debug)

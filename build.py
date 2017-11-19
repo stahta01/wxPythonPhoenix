@@ -63,6 +63,10 @@ wxversion3_nodot = wxversion3.replace(".", "")
 unstable_series = (version.wxVER_MINOR % 2) == 1  # is the minor version odd or even?
 
 isWindows = sys.platform.startswith('win')
+if isWindows and "MSYSTEM" in os.environ:
+    isMsys = os.popen('uname -o', 'r').read()[:-1].startswith('Msys')
+else:
+    isMsys = False
 isDarwin = sys.platform == "darwin"
 devMode = False
 
@@ -737,7 +741,7 @@ def uploadTree(srcPath, destPath, options, keep=30):
 
 
 def checkCompiler(quiet=False):
-    if isWindows:
+    if isWindows and not isMsys:
         # Make sure that the compiler that Python wants to use can be found.
         # It will terminate if the compiler is not found or other exceptions
         # are raised.
@@ -822,7 +826,16 @@ def _doDox(arg):
     doxCmd = getDoxCmd()
     doxCmd = os.path.abspath(doxCmd)
 
-    if isWindows:
+    if isMsys:
+        msys_path = os.environ.get('MSYS_BASE')
+        doxCmd = doxCmd.replace('\\', '/')
+        doxCmd = runcmd(msys_path+'/usr/bin/cygpath -u '+doxCmd, True, False)
+        os.environ['DOXYGEN'] = doxCmd
+        os.environ['WX_SKIP_DOXYGEN_VERSION_CHECK'] = '1'
+        d = posixjoin(wxDir(), 'docs/doxygen')
+        d = d.replace('\\', '/')
+        cmd = '%s/usr/bin/bash.exe -l -c "cd %s && ./regen.sh %s"' % (msys_path, d, arg)
+    elif isWindows:
         cygwin_path = getCygwinPath()
         doxCmd = doxCmd.replace('\\', '/')
         doxCmd = runcmd(cygwin_path+'/bin/cygpath -u '+doxCmd, True, False)
@@ -1203,7 +1216,7 @@ def cmd_build_wx(options, args):
     if options.jobs:
         build_options.append('--jobs=%s' % options.jobs)
 
-    if isWindows:
+    if isWindows and not isMsys:
         # Windows-specific pre build stuff
         if options.cairo:
             build_options.append('--cairo')
@@ -1213,6 +1226,22 @@ def cmd_build_wx(options, args):
         if options.jom:
             build_options.append('--jom')
 
+    elif isWindows and isMsys:
+        # Windows-specific pre build stuff
+        if options.cairo:
+            build_options.append('--cairo')
+            cairo_root = os.path.join(phoenixDir(), 'packaging', 'cairo-msw')
+            os.environ['CAIRO_ROOT'] = cairo_root
+
+        if options.jom:
+            build_options.append('--jom')
+
+        BUILD_DIR = getBuildDir(options)
+        PREFIX = options.prefix
+        if PREFIX:
+            build_options.append('--prefix=%s' % PREFIX)
+        if not os.path.exists(BUILD_DIR):
+            os.makedirs(BUILD_DIR)
     else:
         # Platform is something other than MSW
         if options.osx_carbon:
@@ -1278,6 +1307,8 @@ def cmd_build_wx(options, args):
     try:
         # Import and run the wxWidgets build script
         from buildtools import build_wxwidgets as wxbuild
+
+        pwd = pushDir(BUILD_DIR)
 
         print('wxWidgets build options: ' + str(build_options))
         wxbuild.main(wxDir(), build_options)
@@ -1385,7 +1416,7 @@ def cmd_build_py(options, args):
     if options.release:
         os.environ['WXPYTHON_RELEASE'] = 'yes'
 
-    if not isWindows:
+    if not isWindows or isMsys:
         WX_CONFIG = posixjoin(BUILD_DIR, 'wx-config')
         if options.use_syswx:
             wxcfg = posixjoin(options.prefix, 'bin', 'wx-config')
@@ -1401,7 +1432,7 @@ def cmd_build_py(options, args):
 
     build_options = list()
     if options.verbose:
-        build_options.append('--verbose')
+        build_options.append('-vvv')
 
     if options.debug or (isWindows and options.both):
         build_options.append("--debug")
@@ -1409,12 +1440,12 @@ def cmd_build_py(options, args):
             wafBuildDir = posixjoin(wafBuildBase, 'debug')
     if isDarwin and options.mac_arch:
         build_options.append("--mac_arch=%s" % options.mac_arch)
-    if isWindows:
+    if isWindows and not isMsys:
         if PYTHON_ARCH == '64bit':
             build_options.append('--msvc_arch=x64')
         else:
             build_options.append('--msvc_arch=x86')
-    if not isWindows:
+    if not isWindows or isMsys:
         build_options.append('--wx_config=%s' % WX_CONFIG)
     if options.verbose:
         build_options.append('--verbose')
@@ -1630,7 +1661,7 @@ def cmd_egg_info(options, args, egg_base=None):
 
 def cmd_clean_wx(options, args):
     cmdTimer = CommandTimer('clean_wx')
-    if isWindows:
+    if isWindows and not isMsys:
         if options.both:
             options.debug = True
         msw = getMSWSettings(options)
@@ -1662,7 +1693,7 @@ def cmd_clean_py(options, args):
     files = list()
     for wc in ['*.py', '*.pyc', '*.so', '*.dylib', '*.pyd', '*.pdb', '*.pi', '*.pyi']:
         files += glob.glob(opj(cfg.PKGDIR, wc))
-    if isWindows:
+    if isWindows and not isMsys:
         msw = getMSWSettings(options)
         for wc in [ 'wx*' + wxversion2_nodot + msw.dll_type + '*.dll',
                     'wx*' + wxversion3_nodot + msw.dll_type + '*.dll']:
