@@ -50,7 +50,7 @@ class Configuration(object):
     # wx-config command will be assembled based on version, port,
     # etc. and it will be looked for on the default $PATH.
 
-    WXPORT = 'gtk3'
+    WXPORT = 'msw'
     # On Linux/Unix there are several ports of wxWidgets available.
     # Setting this value lets you select which will be used for the
     # wxPython build.  Possibilities are 'gtk', 'gtk2', 'gtk3' and 'x11'.
@@ -68,7 +68,7 @@ class Configuration(object):
     WXDLLVER = None
     # Version part of wxWidgets LIB/DLL names
 
-    COMPILER = 'msvc'
+    COMPILER = 'mingw32'
     # Used to select which compiler will be used on Windows.  This not
     # only affects distutils, but also some of the default flags and
     # other assumptions in this script.  Current supported values are
@@ -910,6 +910,9 @@ def getToolsPlatformName(useLinuxBits=False):
         name = 'linux'
         if useLinuxBits:
             name += platform.architecture()[0][:2]
+    if name.startswith('win') and "MSYSTEM" in os.environ:
+        if os.popen('uname -o', 'r').read()[:-1].startswith('Msys'):
+            name = 'msys'
     return name
 
 

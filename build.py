@@ -62,6 +62,7 @@ wxversion3_nodot = wxversion3.replace(".", "")
 
 unstable_series = (version.wxVER_MINOR % 2) == 1  # is the minor version odd or even?
 
+isMsys = getToolsPlatformName().startswith('msys')
 isWindows = sys.platform.startswith('win')
 isDarwin = sys.platform == "darwin"
 devMode = False
@@ -530,6 +531,8 @@ def getTool(cmdName, version, MD5, envVar, platformBinary, linuxBits=False):
         if platformBinary:
             platform = getToolsPlatformName(linuxBits)
             ext = ''
+            if platform == 'msys':
+               platform = 'win32'
             if platform == 'win32':
                 ext = '.exe'
             cmd = opj(phoenixDir(), 'bin', '%s-%s-%s%s' % (cmdName, version, platform, ext))
@@ -737,7 +740,7 @@ def uploadTree(srcPath, destPath, options, keep=30):
 
 
 def checkCompiler(quiet=False):
-    if isWindows:
+    if isWindows and not isMsys:
         # Make sure that the compiler that Python wants to use can be found.
         # It will terminate if the compiler is not found or other exceptions
         # are raised.
@@ -811,6 +814,19 @@ def getCygwinPath():
 
     return None
 
+def getMsysPath():
+    """
+    Try to locate the path where cygwin is installed.
+
+    If MSYS_BASE is set in the environment then use that. Otherwise look in
+    default install locations.
+    """
+    print getToolsPlatformName()
+    if os.environ.get('MSYS_BASE'):
+        return os.environ.get('MSYS_BASE')
+
+    return None
+
 
 
 #---------------------------------------------------------------------------
@@ -822,7 +838,16 @@ def _doDox(arg):
     doxCmd = getDoxCmd()
     doxCmd = os.path.abspath(doxCmd)
 
-    if isWindows:
+    if isMsys:
+        msys_path = getMsysPath()
+        doxCmd = doxCmd.replace('\\', '/')
+        doxCmd = runcmd(msys_path+'/usr/bin/cygpath -u '+doxCmd, True, False)
+        os.environ['DOXYGEN'] = doxCmd
+        os.environ['WX_SKIP_DOXYGEN_VERSION_CHECK'] = '1'
+        d = posixjoin(wxDir(), 'docs/doxygen')
+        d = d.replace('\\', '/')
+        cmd = '%s/usr/bin/bash.exe -l -c "cd %s && ./regen.sh %s"' % (msys_path, d, arg)
+    elif isWindows:
         cygwin_path = getCygwinPath()
         doxCmd = doxCmd.replace('\\', '/')
         doxCmd = runcmd(cygwin_path+'/bin/cygpath -u '+doxCmd, True, False)
@@ -1212,6 +1237,13 @@ def cmd_build_wx(options, args):
 
         if options.jom:
             build_options.append('--jom')
+
+        if isMsys:
+            BUILD_DIR = getBuildDir(options)
+#            build_options.append('--builddir=%s' % BUILD_DIR)
+
+            if not os.path.exists(BUILD_DIR):
+                os.makedirs(BUILD_DIR)
 
     else:
         # Platform is something other than MSW
@@ -1630,7 +1662,7 @@ def cmd_egg_info(options, args, egg_base=None):
 
 def cmd_clean_wx(options, args):
     cmdTimer = CommandTimer('clean_wx')
-    if isWindows:
+    if isWindows and not isMsys:
         if options.both:
             options.debug = True
         msw = getMSWSettings(options)
