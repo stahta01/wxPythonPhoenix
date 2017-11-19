@@ -27,8 +27,10 @@ out = 'build/waf'
 
 
 def options(opt):
-    if isWindows:
+    if isWindows and cfg.COMPILER == 'msvc':
         opt.load('msvc')
+    elif isWindows and cfg.COMPILER == 'mingw32':
+        opt.load('gcc')
     else:
         opt.load('compiler_cc compiler_cxx')
     opt.load('python')
@@ -67,7 +69,7 @@ def options(opt):
 
 
 def configure(conf):
-    if isWindows:
+    if isWindows and cfg.COMPILER == 'msvc':
         # For now simply choose the compiler version based on the Python
         # version. We have a chicken-egg problem here. The compiler needs to
         # be selected before the Python stuff can be configured, but we need
@@ -77,6 +79,9 @@ def configure(conf):
         conf.env['MSVC_VERSIONS'] = ['msvc ' + msvc_version]
         conf.env['MSVC_TARGETS'] = [conf.options.msvc_arch]
         conf.load('msvc')
+    elif isWindows and cfg.COMPILER == 'mingw32':
+        import distutils.cygwinccompiler
+        conf.load('gcc')
     else:
         conf.load('compiler_cc compiler_cxx')
 
