@@ -561,9 +561,11 @@ class Configuration(object):
         newLFLAGS = []
         for flag in lflags:
             if flag[:2] == '-L':
-                libdirs.append(flag[2:])
+                libdirs.append(os.popen(' '.join(['cygpath', '-am', flag[2:]])).readline().strip())
             elif flag[:2] == '-l':
                 libs.append(flag[2:])
+            elif flag[:1] == '/':
+                libs.append(os.popen(' '.join(['cygpath', '-am', flag])).readline().strip())
             else:
                 newLFLAGS.append(flag)
         return newLFLAGS
