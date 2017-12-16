@@ -419,7 +419,7 @@ def configure(conf):
 #
 
 
-from waflib.Configure import conf,Utils
+from waflib.Configure import conf,Utils,Logs,Errors
 # from waflib import Build,Utils,Task,Options,Logs,Errors,ConfigSet,Runner
 
 
@@ -598,6 +598,10 @@ def my_exec_cfg(self,kw):
 #
 # This is a copy of WAF's cmd_and_log with some problematic stuff ripped out.
 #
+
+STDOUT = 1
+STDERR = -1
+BOTH   = 0
 
 @conf
 def my_cmd_and_log(self, cmd, **kw):
