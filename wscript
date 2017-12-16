@@ -619,7 +619,7 @@ def my_cmd_and_log(self, cmd, **kw):
     :raises: :py:class:`waflib.Errors.WafError` in case of execution failure; stdout/stderr/returncode are bound to the exception object
     """
     subprocess = Utils.subprocess
-    kw['shell'] = isinstance(cmd, str)
+    kw['shell'] = True
     Logs.debug('runner: %r', cmd)
 
     if 'quiet' in kw:
