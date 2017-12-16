@@ -414,12 +414,19 @@ def configure(conf):
     #import pprint
     #pprint.pprint( [(k, conf.env[k]) for k in conf.env.keys()] )
 
+#
+# copy of WAF's methods begin
+#
+
+
+from waflib.Configure import conf,Utils
+# from waflib import Build,Utils,Task,Options,Logs,Errors,ConfigSet,Runner
 
 
 #
 # This is a copy of WAF's check_python_headers with some problematic stuff ripped out.
 #
-from waflib.Configure import conf
+
 
 @conf
 def my_check_python_headers(conf):
@@ -542,28 +549,28 @@ def my_check_python_headers(conf):
 
 @conf
 def my_check_cfg(self,*k,**kw):
-	if k:
-		lst=k[0].split()
-		kw['package']=lst[0]
-		kw['args']=' '.join(lst[1:])
-	self.validate_cfg(kw)
-	if'msg'in kw:
-		self.start_msg(kw['msg'])
-	ret=None
-	try:
-		ret=self.my_exec_cfg(kw)
-	except self.errors.WafError:
-		if'errmsg'in kw:
-			self.end_msg(kw['errmsg'],'YELLOW')
-		if Logs.verbose>1:
-			raise
-		else:
-			self.fatal('The configuration failed')
-	else:
-		kw['success']=ret
-		if'okmsg'in kw:
-			self.end_msg(self.ret_msg(kw['okmsg'],kw))
-	return ret
+    if k:
+        lst=k[0].split()
+        kw['package']=lst[0]
+        kw['args']=' '.join(lst[1:])
+    self.validate_cfg(kw)
+    if'msg'in kw:
+        self.start_msg(kw['msg'])
+    ret=None
+    try:
+        ret=self.my_exec_cfg(kw)
+    except self.errors.WafError:
+        if'errmsg'in kw:
+            self.end_msg(kw['errmsg'],'YELLOW')
+        if Logs.verbose>1:
+            raise
+        else:
+            self.fatal('The configuration failed')
+    else:
+        kw['success']=ret
+        if'okmsg'in kw:
+            self.end_msg(self.ret_msg(kw['okmsg'],kw))
+    return ret
 
 #
 # This is a copy of WAF's exec_cfg with some problematic stuff ripped out.
@@ -571,56 +578,113 @@ def my_check_cfg(self,*k,**kw):
 
 @conf
 def my_exec_cfg(self,kw):
-	def define_it():
-		self.define(self.have_define(kw.get('uselib_store',kw['package'])),1,0)
-	if'atleast_pkgconfig_version'in kw:
-		cmd=[kw['path'],'--atleast-pkgconfig-version=%s'%kw['atleast_pkgconfig_version']]
-		self.cmd_and_log(cmd)
-		if not'okmsg'in kw:
-			kw['okmsg']='yes'
-		return
-	for x in cfg_ver:
-		y=x.replace('-','_')
-		if y in kw:
-			self.cmd_and_log([kw['path'],'--%s=%s'%(x,kw[y]),kw['package']])
-			if not'okmsg'in kw:
-				kw['okmsg']='yes'
-			define_it()
-			break
-	if'modversion'in kw:
-		version=self.cmd_and_log([kw['path'],'--modversion',kw['modversion']]).strip()
-		self.define('%s_VERSION'%Utils.quote_define_name(kw.get('uselib_store',kw['modversion'])),version)
-		return version
-	lst=[kw['path']]
-	defi=kw.get('define_variable',None)
-	if not defi:
-		defi=self.env.PKG_CONFIG_DEFINES or{}
-	for key,val in defi.items():
-		lst.append('--define-variable=%s=%s'%(key,val))
-	static=False
-	if'args'in kw:
-		args=Utils.to_list(kw['args'])
-		if'--static'in args or'--static-libs'in args:
-			static=True
-		lst+=args
-	lst.extend(Utils.to_list(kw['package']))
-	if'variables'in kw:
-		env=kw.get('env',self.env)
-		uselib=kw.get('uselib_store',kw['package'].upper())
-		vars=Utils.to_list(kw['variables'])
-		for v in vars:
-			val=self.cmd_and_log(lst+['--variable='+v]).strip()
-			var='%s_%s'%(uselib,v)
-			env[var]=val
-		if not'okmsg'in kw:
-			kw['okmsg']='yes'
-		return
-	ret=self.cmd_and_log(lst)
-	if not'okmsg'in kw:
-		kw['okmsg']='yes'
-	define_it()
-	self.parse_flags(ret,kw.get('uselib_store',kw['package'].upper()),kw.get('env',self.env),force_static=static)
-	return ret
+    def define_it():
+        self.define(self.have_define(kw.get('uselib_store',kw['package'])),1,0)
+    lst=[kw['path']]
+    static=False
+    if'args'in kw:
+        args=Utils.to_list(kw['args'])
+        if'--static'in args or'--static-libs'in args:
+          static=True
+        lst+=args
+    lst.extend(Utils.to_list(kw['package']))
+    ret=self.my_cmd_and_log(lst)
+    if not'okmsg'in kw:
+        kw['okmsg']='yes'
+    define_it()
+    self.parse_flags(ret,kw.get('uselib_store',kw['package'].upper()),kw.get('env',self.env),force_static=static)
+    return ret
+
+#
+# This is a copy of WAF's cmd_and_log with some problematic stuff ripped out.
+#
+
+@conf
+def my_cmd_and_log(self, cmd, **kw):
+    """
+    Executes a process and returns stdout/stderr if the execution is successful.
+    An exception is thrown when the exit status is non-0. 
+
+    :param cmd: args for subprocess.Popen
+    :type cmd: list or string
+    :param kw: keyword arguments for subprocess.Popen. The parameters input/timeout will be passed to wait/communicate.
+    :type kw: dict
+    :returns: process exit status
+    :rtype: integer
+    :raises: :py:class:`waflib.Errors.WafError` if an invalid executable is specified for a non-shell process
+    :raises: :py:class:`waflib.Errors.WafError` in case of execution failure; stdout/stderr/returncode are bound to the exception object
+    """
+    subprocess = Utils.subprocess
+    kw['shell'] = isinstance(cmd, str)
+    Logs.debug('runner: %r', cmd)
+
+    if 'quiet' in kw:
+        quiet = kw['quiet']
+        del kw['quiet']
+    else:
+        quiet = None
+
+    if 'output' in kw:
+        to_ret = kw['output']
+        del kw['output']
+    else:
+        to_ret = STDOUT
+
+    if Logs.verbose and not kw['shell'] and not Utils.check_exe(cmd[0]):
+        raise Errors.WafError('Program %r not found!' % cmd[0])
+
+    kw['stdout'] = kw['stderr'] = subprocess.PIPE
+    if quiet is None:
+        self.to_log(cmd)
+
+    cargs = {}
+    if 'timeout' in kw:
+        if sys.hexversion >= 0x3030000:
+            cargs['timeout'] = kw['timeout']
+            if not 'start_new_session' in kw:
+                kw['start_new_session'] = True
+        del kw['timeout']
+    if 'input' in kw:
+        if kw['input']:
+            cargs['input'] = kw['input']
+            kw['stdin'] = subprocess.PIPE
+        del kw['input']
+
+    if 'cwd' in kw:
+        if not isinstance(kw['cwd'], str):
+            kw['cwd'] = kw['cwd'].abspath()
+
+    try:
+        ret, out, err = Utils.run_process(cmd, kw, cargs)
+    except Exception as e:
+        raise Errors.WafError('Execution failure: %s' % str(e), ex=e)
+
+    if not isinstance(out, str):
+        out = out.decode(sys.stdout.encoding or 'iso8859-1', errors='replace')
+    if not isinstance(err, str):
+        err = err.decode(sys.stdout.encoding or 'iso8859-1', errors='replace')
+
+    if out and quiet != STDOUT and quiet != BOTH:
+        self.to_log('out: %s' % out)
+    if err and quiet != STDERR and quiet != BOTH:
+        self.to_log('err: %s' % err)
+
+    if ret:
+        e = Errors.WafError('Command %r returned %r' % (cmd, ret))
+        e.returncode = ret
+        e.stderr = err
+        e.stdout = out
+        raise e
+
+    if to_ret == BOTH:
+        return (out, err)
+    elif to_ret == STDERR:
+        return err
+    return out
+
+#
+# copy of WAF's methods end
+#
 
 
 def get_windows_base_prefix(conf, default):
