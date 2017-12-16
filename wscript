@@ -191,10 +191,62 @@ def configure(conf):
         cfg.finishSetup(conf.env.wx_config, conf.env.debug)
 
         # Check wx-config exists and fetch some values from it
+        rpath = ' --no-rpath' if not conf.options.no_magic else ''
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs core,net' + rpath,
+                       uselib_store='WX', mandatory=True)
 
         # Run it again with different libs options to get different
         # sets of flags stored to use with varous extension modules below.
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs adv,core,net' + rpath,
+                       uselib_store='WXADV', mandatory=True)
 
+        libname = '' if cfg.MONOLITHIC else 'stc,' # workaround bug in wx-config
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args=('--cxxflags --libs %score,net' % libname) + rpath,
+                       uselib_store='WXSTC', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs html,core,net' + rpath,
+                       uselib_store='WXHTML', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs gl,core,net' + rpath,
+                       uselib_store='WXGL', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs webview,core,net' + rpath,
+                       uselib_store='WXWEBVIEW', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs xml,core,net' + rpath,
+                       uselib_store='WXXML', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs xrc,xml,core,net' + rpath,
+                       uselib_store='WXXRC', mandatory=True)
+
+        libname = '' if cfg.MONOLITHIC else 'richtext,' # workaround bug in wx-config
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs %score,net' % libname + rpath,
+                       uselib_store='WXRICHTEXT', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs media,core,net' + rpath,
+                       uselib_store='WXMEDIA', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs ribbon,core,net' + rpath,
+                       uselib_store='WXRIBBON', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs propgrid,core' + rpath,
+                       uselib_store='WXPROPGRID', mandatory=True)
+
+        conf.my_check_cfg(path=conf.options.wx_config, package='',
+                       args='--cxxflags --libs aui,core' + rpath,
+                       uselib_store='WXAUI', mandatory=True)
 
         # ** Add code for new modules here
 
@@ -483,6 +535,92 @@ def my_check_python_headers(conf):
         env.append_value('CFLAGS_PYEXT', dist_compiler.compile_options)
         env.append_value('CXXFLAGS_PYEXT', dist_compiler.compile_options)
         env.append_value('LINKFLAGS_PYEXT', dist_compiler.ldflags_shared)
+
+#
+# This is a copy of WAF's check_cfg that calls my_exec_cfg
+#
+
+@conf
+def my_check_cfg(self,*k,**kw):
+	if k:
+		lst=k[0].split()
+		kw['package']=lst[0]
+		kw['args']=' '.join(lst[1:])
+	self.validate_cfg(kw)
+	if'msg'in kw:
+		self.start_msg(kw['msg'])
+	ret=None
+	try:
+		ret=self.my_exec_cfg(kw)
+	except self.errors.WafError:
+		if'errmsg'in kw:
+			self.end_msg(kw['errmsg'],'YELLOW')
+		if Logs.verbose>1:
+			raise
+		else:
+			self.fatal('The configuration failed')
+	else:
+		kw['success']=ret
+		if'okmsg'in kw:
+			self.end_msg(self.ret_msg(kw['okmsg'],kw))
+	return ret
+
+#
+# This is a copy of WAF's exec_cfg with some problematic stuff ripped out.
+#
+
+@conf
+def my_exec_cfg(self,kw):
+	def define_it():
+		self.define(self.have_define(kw.get('uselib_store',kw['package'])),1,0)
+	if'atleast_pkgconfig_version'in kw:
+		cmd=[kw['path'],'--atleast-pkgconfig-version=%s'%kw['atleast_pkgconfig_version']]
+		self.cmd_and_log(cmd)
+		if not'okmsg'in kw:
+			kw['okmsg']='yes'
+		return
+	for x in cfg_ver:
+		y=x.replace('-','_')
+		if y in kw:
+			self.cmd_and_log([kw['path'],'--%s=%s'%(x,kw[y]),kw['package']])
+			if not'okmsg'in kw:
+				kw['okmsg']='yes'
+			define_it()
+			break
+	if'modversion'in kw:
+		version=self.cmd_and_log([kw['path'],'--modversion',kw['modversion']]).strip()
+		self.define('%s_VERSION'%Utils.quote_define_name(kw.get('uselib_store',kw['modversion'])),version)
+		return version
+	lst=[kw['path']]
+	defi=kw.get('define_variable',None)
+	if not defi:
+		defi=self.env.PKG_CONFIG_DEFINES or{}
+	for key,val in defi.items():
+		lst.append('--define-variable=%s=%s'%(key,val))
+	static=False
+	if'args'in kw:
+		args=Utils.to_list(kw['args'])
+		if'--static'in args or'--static-libs'in args:
+			static=True
+		lst+=args
+	lst.extend(Utils.to_list(kw['package']))
+	if'variables'in kw:
+		env=kw.get('env',self.env)
+		uselib=kw.get('uselib_store',kw['package'].upper())
+		vars=Utils.to_list(kw['variables'])
+		for v in vars:
+			val=self.cmd_and_log(lst+['--variable='+v]).strip()
+			var='%s_%s'%(uselib,v)
+			env[var]=val
+		if not'okmsg'in kw:
+			kw['okmsg']='yes'
+		return
+	ret=self.cmd_and_log(lst)
+	if not'okmsg'in kw:
+		kw['okmsg']='yes'
+	define_it()
+	self.parse_flags(ret,kw.get('uselib_store',kw['package'].upper()),kw.get('env',self.env),force_static=static)
+	return ret
 
 
 def get_windows_base_prefix(conf, default):
