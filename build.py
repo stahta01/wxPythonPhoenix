@@ -1342,7 +1342,7 @@ def copyWxDlls(options):
     if options.no_magic or options.use_syswx:
         return
 
-    if isWindows:
+    if isWindows and not isMsys:
         # Copy the wxWidgets DLLs to the wxPython package folder
         msw = getMSWSettings(options)
         cfg = Config()
@@ -1370,6 +1370,14 @@ def copyWxDlls(options):
                 arch, 'Microsoft.VC140.CRT', '*.dll')
             dlls += glob.glob(redist_dir)
 
+        for dll in dlls:
+            copyIfNewer(dll, posixjoin(phoenixDir(), cfg.PKGDIR, os.path.basename(dll)), verbose=True)
+
+    elif isMsys:
+        # MSys2.  For now that means that we'll assume it's wxMSW.
+        cfg = Config()
+        wxlibdir = os.path.join(getBuildDir(options), "lib")
+        dlls = glob.glob(wxlibdir + '/libwx_*.dll')
         for dll in dlls:
             copyIfNewer(dll, posixjoin(phoenixDir(), cfg.PKGDIR, os.path.basename(dll)), verbose=True)
 

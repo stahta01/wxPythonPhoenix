@@ -179,6 +179,55 @@ def configure(conf):
             conf.env['LINKFLAGS_PYEXT'].append('/DEBUG')
             conf.env['LIB_PYEXT'][0] += '_d'
 
+    elif isWindows and isMsys:
+        # Configuration stuff for non-Windows ports using wx-config
+        conf.env.CFLAGS_WX   = list()
+        conf.env.CXXFLAGS_WX = list()
+        conf.env.CFLAGS_WXPY   = list()
+        conf.env.CXXFLAGS_WXPY = list()
+
+        # finish configuring the Config object
+        conf.env.wx_config = conf.options.wx_config
+        cfg.finishSetup(conf.env.wx_config, conf.env.debug)
+
+        # Check wx-config exists and fetch some values from it
+
+        # Run it again with different libs options to get different
+        # sets of flags stored to use with varous extension modules below.
+
+
+        # ** Add code for new modules here
+
+
+        # clear out Python's default NDEBUG and make sure it is undef'd too just in case
+        if 'NDEBUG' in conf.env.DEFINES_PYEXT:
+            conf.env.DEFINES_PYEXT.remove('NDEBUG')
+        conf.env.CFLAGS_WXPY.append('-UNDEBUG')
+        conf.env.CXXFLAGS_WXPY.append('-UNDEBUG')
+
+        # Add basic debug info for all builds
+        conf.env.CFLAGS_WXPY.append('-g')
+        conf.env.CXXFLAGS_WXPY.append('-g')
+
+        # And if --debug is set turn on more detailed debug info and turn off optimization
+        if conf.env.debug:
+            conf.env.CFLAGS_WXPY.extend(['-ggdb', '-O0'])
+            conf.env.CXXFLAGS_WXPY.extend(['-ggdb', '-O0'])
+
+        # Remove some compile flags we don't care about, ones that we may be
+        # replacing ourselves anyway, or ones which may have duplicates.
+        flags = ['CFLAGS_PYEXT',    'CXXFLAGS_PYEXT',    'LINKFLAGS_PYEXT',
+                 'CFLAGS_cshlib',   'CXXFLAGS_cshlib',   'LINKFLAGS_cshlib',
+                 'CFLAGS_cxxshlib', 'CXXFLAGS_cxxshlib', 'LINKFLAGS_cxxshlib']
+        for key in flags:
+            _cleanFlags(conf, key)
+
+
+        # Use the same compilers that wxWidgets used
+        if cfg.CC:
+            conf.env.CC = cfg.CC.split()
+        if cfg.CXX:
+            conf.env.CXX = cfg.CXX.split()
 
     else:
         # Configuration stuff for non-Windows ports using wx-config
