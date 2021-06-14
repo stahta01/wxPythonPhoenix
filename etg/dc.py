@@ -241,7 +241,7 @@ def run():
 
     c.addCppMethod('long', 'GetHDC', '()', """\
         #ifdef __WXMSW__
-            return (long)self->GetHandle();
+            return HandleToLong(self->GetHandle());
         #else
             wxPyRaiseNotImplemented();
             return 0;
